@@ -1,0 +1,35 @@
+# ============================================================
+# MemoryAgent · Qwen —— 本地一键启动
+#   docker compose up --build
+# ============================================================
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    container_name: memory-agent-backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - backend/.env
+    environment:
+      CHROMA_DIR: /data/chroma_db
+      SQLITE_PATH: /data/profiles.db
+      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+    volumes:
+      - memory-data:/data          # 向量库 + SQLite 持久化
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.frontend
+    container_name: memory-agent-frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  memory-data:

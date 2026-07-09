@@ -1,0 +1,27 @@
+# ============================================================
+# 后端镜像 —— FastAPI + LangGraph + ChromaDB
+# ============================================================
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# 系统依赖：sentence-transformers/chromadb 编译需要
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# 先装依赖, 利用 Docker 层缓存
+COPY backend/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 再拷源码
+COPY backend/ .
+
+# 持久化目录 (向量库 / SQLite) —— 由 compose volume 挂载
+ENV CHROMA_DIR=/data/chroma_db \
+    SQLITE_PATH=/data/profiles.db \
+    PYTHONUNBUFFERED=1
+
+EXPOSE 8000
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

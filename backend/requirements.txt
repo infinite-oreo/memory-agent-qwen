@@ -1,0 +1,19 @@
+# ===== Web 框架 =====
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+
+# ===== Agent 编排 =====
+langchain==0.3.14
+langgraph==0.2.62
+langchain-openai==0.2.14
+
+# ===== 记忆存储 =====
+chromadb==0.5.23
+sentence-transformers==3.3.1
+aiosqlite==0.20.0
+
+# ===== 配置 =====
+python-dotenv==1.0.1
+
+# ===== 数据校验 (FastAPI 依赖, 显式固定) =====
+pydantic==2.10.4
