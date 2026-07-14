@@ -67,6 +67,7 @@ export default function MemoryPanel({ userId, refreshKey }: Props) {
               <div className="memory-meta">
                 <span>存于 {fmt(m.created_at)}</span>
                 <span>· 访问 {m.access_count} 次</span>
+                <span>· 重要性 {m.importance.toFixed(1)}</span>
               </div>
             </li>
           ))}

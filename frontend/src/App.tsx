@@ -54,29 +54,35 @@ export default function App() {
           />
           {learned && hasLearned(learned) && (
             <div className="learned-banner">
-              <strong>🆕 刚刚学到：</strong>
-              <ul>
-                {Object.entries(learned.profile).map(([k, v]) => (
-                  <li key={`p-${k}`}>画像 · {k}：{v}</li>
-                ))}
-                {learned.preferences.map((p, i) => (
-                  <li key={`pref-${i}`}>偏好 · {p.key}：{p.value}</li>
-                ))}
-                {learned.memories.map((m, i) => (
-                  <li key={`m-${i}`}>记忆 · {m}</li>
-                ))}
-              </ul>
+              <div className="learned-banner-inner">
+                <strong>🆕 刚刚学到：</strong>
+                <ul>
+                  {Object.entries(learned.profile).map(([k, v]) => (
+                    <li key={`p-${k}`}>画像 · {k}：{v}</li>
+                  ))}
+                  {learned.preferences.map((p, i) => (
+                    <li key={`pref-${i}`}>偏好 · {p.key}：{p.value}</li>
+                  ))}
+                  {learned.memories.map((m, i) => (
+                    <li key={`m-${i}`}>
+                      记忆 · {m.text}（重要性 {m.importance.toFixed(1)}）
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
           )}
 
           {memoriesUsed.length > 0 && (
             <div className="used-memories">
-              <strong>本轮调用的记忆：</strong>
-              <ul>
-                {memoriesUsed.map((m, i) => (
-                  <li key={i}>{m}</li>
-                ))}
-              </ul>
+              <div className="used-memories-inner">
+                <strong>本轮调用的记忆：</strong>
+                <ul>
+                  {memoriesUsed.map((m, i) => (
+                    <li key={i}>{m}</li>
+                  ))}
+                </ul>
+              </div>
             </div>
           )}
         </div>

@@ -7,15 +7,30 @@
 
 ---
 
+## 📖 项目背景
+
+本项目参加 **Global AI Hackathon Series with Qwen Cloud**（Devpost 主办）的 **MemoryAgent 赛道**，
+赛道要求构建一个具备持久记忆的 Agent：自主积累经验、记住用户偏好，并在多轮、跨会话的交互中做出越来越准确的判断；
+重点考察三件事——**高效的记忆存储与检索**、**及时遗忘过时信息**、**在有限上下文窗口内召回关键记忆**。
+
+本项目正是围绕这三个考察点展开：三层记忆架构（短期/长期/结构化）+ 写入前去重负责高效存储与检索，
+`memory/forgetting.py` 的重要性加权时间衰减 + 定期真删除负责及时遗忘，
+`memory/context_budget.py` 的 token 预算裁剪负责在有限上下文窗口内精选最关键的记忆与历史。
+
+---
+
 ## ✨ 核心特性
 
 - **三层记忆架构**
   - 🟢 **短期记忆**（in-memory）：会话内对话滑窗，进程内有效
   - 🔵 **长期记忆**（ChromaDB 向量库）：跨会话语义记忆，多语言 embedding
   - 🟡 **结构化画像**（SQLite）：姓名 / 研究领域 / 偏好键值
-- **遗忘机制**：`score = 语义相似度 × exp(-λ × 距上次访问天数)`，检索时重排，模拟人类记忆的时间衰减
+- **遗忘机制**：`score = 语义相似度 × 重要性^α × exp(-λ × 距上次访问天数)`，检索时重排；跌破阈值的陈旧记忆定期真删除，而非只降权
+- **记忆去重**：新记忆写入前做向量相似度查重，语义重复则强化旧记忆（刷新访问、重要性取高者）而非重复入库
+- **重要性权重**：LLM 抽取记忆时同步打 0~1 重要性分，核心事实衰减更慢，一次性话题更快被遗忘
+- **Token 预算上下文**：`tiktoken` 计数，长期记忆与短期历史按真实 token 预算动态裁剪注入 prompt，而非拍脑袋定条数
 - **认知流编排**：LangGraph 串联 `检索记忆 → 推理 → 存储` 单向状态流
-- **记忆可视化**：前端右侧面板实时展示"Agent 现在记住了什么"
+- **记忆可视化**：前端右侧面板实时展示"Agent 现在记住了什么"，含重要性标注
 - **Qwen 接入**：通过 OpenAI 兼容接口调用 `qwen-max`
 
 ---
@@ -80,14 +95,18 @@ npm run dev   # http://localhost:5173
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
-| `QWEN_API_KEY` | Qwen Cloud API Key（**必填**，经 [qwencloud-getapi](https://bit.ly/qwencloud-getapi) 申请，国际版 key，与国内百炼 key 不通用） | — |
-| `QWEN_BASE_URL` | OpenAI 兼容端点（国际版，官方指定，勿改回国内 `dashscope.aliyuncs.com`） | `dashscope-intl.aliyuncs.com/compatible-mode/v1` |
+| `QWEN_API_KEY` | Qwen Cloud API Key（**必填**，经 [qwencloud-getapi](https://bit.ly/qwencloud-getapi) 申请，需为国际版 key） | — |
+| `QWEN_BASE_URL` | OpenAI 兼容端点（国际版 `dashscope.aliyuncs.com`） | `dashscope-intl.aliyuncs.com/compatible-mode/v1` |
 | `QWEN_MODEL` | 对话模型 | `qwen-max` |
 | `CHROMA_DIR` | 向量库持久化目录 | `./chroma_db` |
 | `SQLITE_PATH` | 用户画像数据库 | `./profiles.db` |
 | `EMBED_MODEL` | embedding 模型 | `paraphrase-multilingual-MiniLM-L12-v2` |
 | `FORGETTING_LAMBDA` | 遗忘衰减系数 λ | `0.01` |
-| `RETRIEVE_TOP_K` | 每次召回记忆条数 | `5` |
+| `FORGETTING_PRUNE_THRESHOLD` | 记忆强度低于此值即真删除 | `0.05` |
+| `DEDUP_SIMILARITY_THRESHOLD` | 去重相似度阈值（余弦） | `0.92` |
+| `MEMORY_CANDIDATE_POOL` | 检索候选池大小（重排前） | `20` |
+| `MEMORY_TOKEN_BUDGET` | 长期记忆注入 prompt 的 token 预算 | `800` |
+| `HISTORY_TOKEN_BUDGET` | 短期历史注入 prompt 的 token 预算 | `1500` |
 | `CORS_ORIGINS` | 放行的前端来源（逗号分隔） | localhost:5173 |
 
 ---
@@ -124,4 +143,4 @@ memory-agent-qwen/
 
 ## 📄 License
 
-MIT © 2026 Jacky Huang
+MIT © 2026

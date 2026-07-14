@@ -20,10 +20,15 @@ class ChatRequest(BaseModel):
     session_id: str
 
 
+class MemoryFact(BaseModel):
+    text: str
+    importance: float = 0.5
+
+
 class FactsLearned(BaseModel):
     profile: dict = {}
     preferences: list[dict] = []
-    memories: list[str] = []
+    memories: list[MemoryFact] = []
 
 
 class ChatResponse(BaseModel):

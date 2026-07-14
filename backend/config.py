@@ -46,9 +46,30 @@ class Settings:
     forgetting_lambda: float = field(
         default_factory=lambda: float(_env("FORGETTING_LAMBDA", "0.01"))
     )
+    # 衰减到此分数以下的记忆视为"已遗忘"，定期真删除，而非仅在检索时降权
+    forgetting_prune_threshold: float = field(
+        default_factory=lambda: float(_env("FORGETTING_PRUNE_THRESHOLD", "0.05"))
+    )
+
+    # ---- 去重 ----
+    # 新记忆与已有记忆的余弦相似度超过此值，视为同一事实的再次印证，强化旧记忆而非重复入库
+    dedup_similarity_threshold: float = field(
+        default_factory=lambda: float(_env("DEDUP_SIMILARITY_THRESHOLD", "0.92"))
+    )
 
     # ---- 检索 ----
-    retrieve_top_k: int = field(default_factory=lambda: int(_env("RETRIEVE_TOP_K", "5")))
+    # 向量库候选池大小：先按语义+遗忘重排召回这么多条，再由 token 预算动态决定实际注入多少条
+    memory_candidate_pool: int = field(
+        default_factory=lambda: int(_env("MEMORY_CANDIDATE_POOL", "20"))
+    )
+    # 注入 system prompt 的长期记忆文本 token 预算（有限上下文窗口内的精选，而非拍脑袋定条数）
+    memory_token_budget: int = field(
+        default_factory=lambda: int(_env("MEMORY_TOKEN_BUDGET", "800"))
+    )
+    # 注入 system prompt 的短期对话历史 token 预算
+    history_token_budget: int = field(
+        default_factory=lambda: int(_env("HISTORY_TOKEN_BUDGET", "1500"))
+    )
 
     # ---- CORS ----
     cors_origins: list = field(

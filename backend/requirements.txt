@@ -15,5 +15,8 @@ aiosqlite==0.20.0
 # ===== 配置 =====
 python-dotenv==1.0.1
 
+# ===== 上下文预算 (token 计数) =====
+tiktoken==0.8.0
+
 # ===== 数据校验 (FastAPI 依赖, 显式固定) =====
 pydantic==2.10.4

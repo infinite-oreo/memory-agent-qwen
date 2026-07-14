@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-[INPUT]: 依赖 langchain_openai.ChatOpenAI，依赖 memory.long_term/structured/short_term/extractor，依赖 config.settings
+[INPUT]: 依赖 langchain_openai.ChatOpenAI，依赖 memory.long_term/structured/short_term/extractor/context_budget，依赖 config.settings
 [OUTPUT]: 对外提供 AgentState 类型 与 retrieve_memory / reason / store_memory 三个异步节点
 [POS]: agent 模块的认知原子，被 graph.py 编排为有向状态流
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -12,6 +12,7 @@ from langchain_openai import ChatOpenAI
 
 from config import settings
 from memory import long_term, structured
+from memory.context_budget import fit_history, fit_memories
 from memory.extractor import extract_facts
 from memory.short_term import short_term_store
 
@@ -43,20 +44,24 @@ _TRIVIAL = {"你好", "hi", "hello", "在吗", "嗨", "谢谢", "thanks", "ok", 
 
 # ------------------------------------------------------------
 # Node 1: retrieve_memory —— 从向量库与画像库召回相关记忆
+#   先按语义+遗忘重排取一个候选池，再用 token 预算精选出真正塞进 prompt 的那几条
 # ------------------------------------------------------------
 async def retrieve_memory(state: AgentState) -> AgentState:
     user_id, query = state["user_id"], state["message"]
     profile = await structured.get_user_profile(user_id)
-    retrieved = long_term.retrieve_memory(user_id, query)
+    candidates = long_term.retrieve_memory(user_id, query, top_k=settings.memory_candidate_pool)
+    retrieved = fit_memories(candidates, settings.memory_token_budget)
     return {"profile": profile, "retrieved": retrieved}
 
 
 # ------------------------------------------------------------
 # Node 2: reason —— 拼装上下文, 调用 Qwen 生成回复
+#   短期历史同样受 token 预算约束，而非无限制塞入整个滑窗
 # ------------------------------------------------------------
 async def reason(state: AgentState) -> AgentState:
     messages = [{"role": "system", "content": _build_system_prompt(state)}]
-    messages.extend(short_term_store.history(state["session_id"]))
+    history = fit_history(short_term_store.history(state["session_id"]), settings.history_token_budget)
+    messages.extend(history)
     messages.append({"role": "user", "content": state["message"]})
 
     resp = await _llm.ainvoke(messages)
@@ -84,11 +89,12 @@ async def _persist_facts(user_id: str, session_id: str, facts: dict) -> None:
     for pref in facts["preferences"]:
         await structured.update_preference(user_id, pref["key"], pref["value"])
 
-    for text in facts["memories"]:
+    for item in facts["memories"]:
         long_term.add_memory(
             user_id=user_id,
-            text=text,
+            text=item["text"],
             metadata={"session_id": session_id, "source": "extracted"},
+            importance=item["importance"],
         )
 
 

@@ -20,6 +20,7 @@ class MemoryItem(BaseModel):
     created_at: str
     last_access: str
     access_count: int
+    importance: float
 
 
 class MemoryView(BaseModel):
@@ -40,6 +41,7 @@ async def get_memory(user_id: str) -> MemoryView:
             created_at=m["metadata"].get("created_at", ""),
             last_access=m["metadata"].get("last_access", ""),
             access_count=int(m["metadata"].get("access_count", 0)),
+            importance=float(m["metadata"].get("importance", 0.5)),
         )
         for m in raw
     ]

@@ -40,7 +40,7 @@ _SYSTEM_PROMPT = """你是一个严格的信息抽取器，服务于研究生的
     {"key": "偏好维度", "value": "具体偏好"}
   ],
   "memories": [
-    "提炼为第三人称陈述句的事实, 每条一个独立事实, 适合语义检索"
+    {"text": "提炼为第三人称陈述句的事实, 每条一个独立事实, 适合语义检索", "importance": 0.5}
   ]
 }
 
@@ -48,6 +48,9 @@ _SYSTEM_PROMPT = """你是一个严格的信息抽取器，服务于研究生的
 - 只抽取明确、稳定、对未来对话有用的信息；忽略寒暄、一次性提问、临时性内容。
 - profile 各字段仅在用户明确透露时填写，否则置为空字符串 ""。
 - memories 用简洁第三人称陈述句（例如 "用户在阅读关于对比学习的论文"）。
+- importance 是 0~1 的浮点数，代表这条记忆对未来对话的长期价值：
+  身份/研究方向/长期偏好等稳定核心事实给 0.8~1.0；中等程度的阶段性计划给 0.5~0.7；
+  一次性好奇心/临时话题给 0.2~0.4。判断不了就给 0.5。
 - 没有可抽取内容时：profile 字段全为 ""，preferences 与 memories 为空数组。
 - 严禁编造未提及的信息。只输出 JSON，不要任何解释或 markdown。"""
 
@@ -82,6 +85,10 @@ async def extract_facts(
 # ============================================================
 def _empty() -> dict:
     return {"profile": {}, "preferences": [], "memories": []}
+
+
+def _clamp01(x: float) -> float:
+    return max(0.0, min(1.0, x))
 
 
 def _profile_summary(profile: dict | None) -> str:
@@ -127,7 +134,13 @@ def _normalize(raw: dict) -> dict:
             )
 
     for m in raw.get("memories") or []:
-        if isinstance(m, str) and m.strip():
-            out["memories"].append(m.strip())
+        if isinstance(m, dict) and isinstance(m.get("text"), str) and m["text"].strip():
+            try:
+                importance = _clamp01(float(m.get("importance", 0.5)))
+            except (TypeError, ValueError):
+                importance = 0.5
+            out["memories"].append({"text": m["text"].strip(), "importance": importance})
+        elif isinstance(m, str) and m.strip():  # 容错：LLM 偶尔退化为纯字符串
+            out["memories"].append({"text": m.strip(), "importance": 0.5})
 
     return out

@@ -8,10 +8,15 @@
 // 开发时经 Vite 代理走 /api → localhost:8000；生产可用 VITE_API_BASE 覆盖
 const BASE = (import.meta.env.VITE_API_BASE as string) || "/api";
 
+export interface MemoryFact {
+  text: string;
+  importance: number;
+}
+
 export interface FactsLearned {
   profile: Record<string, string>;
   preferences: { key: string; value: string }[];
-  memories: string[];
+  memories: MemoryFact[];
 }
 
 export interface ChatResponse {
@@ -26,6 +31,7 @@ export interface MemoryItem {
   created_at: string;
   last_access: string;
   access_count: number;
+  importance: number;
 }
 
 export interface MemoryView {

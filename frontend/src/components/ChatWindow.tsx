@@ -55,14 +55,16 @@ export default function ChatWindow({ userId, sessionId, onReply }: Props) {
   return (
     <div className="chat-window">
       <div className="chat-messages">
-        {messages.length === 0 && (
-          <div className="chat-empty">开始和你的研究助手对话吧，它会记住你 👋</div>
-        )}
-        {messages.map((m, i) => (
-          <MessageBubble key={i} role={m.role} content={m.content} />
-        ))}
-        {loading && <div className="chat-typing">助手思考中…</div>}
-        <div ref={endRef} />
+        <div className="chat-messages-inner">
+          {messages.length === 0 && (
+            <div className="chat-empty">开始和你的研究助手对话吧，它会记住你 👋</div>
+          )}
+          {messages.map((m, i) => (
+            <MessageBubble key={i} role={m.role} content={m.content} />
+          ))}
+          {loading && <div className="chat-typing">助手思考中…</div>}
+          <div ref={endRef} />
+        </div>
       </div>
 
       <div className="chat-input-bar">
