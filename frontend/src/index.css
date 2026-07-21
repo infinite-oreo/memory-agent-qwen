@@ -351,6 +351,24 @@
   color: var(--muted-foreground);
   display: flex;
   gap: 6px;
+  align-items: center;
+}
+.memory-type-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--foreground);
+}
+.memory-type-episodic {
+  background: var(--chart-3);
+}
+.memory-type-semantic {
+  background: var(--chart-1);
+}
+.memory-type-procedural {
+  background: var(--accent);
 }
 .muted {
   color: var(--muted-foreground);

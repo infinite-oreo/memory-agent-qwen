@@ -18,6 +18,12 @@ function fmt(ts: string): string {
   return Number.isNaN(d.getTime()) ? ts : d.toLocaleString("zh-CN");
 }
 
+const TYPE_LABEL: Record<string, string> = {
+  episodic: "情景",
+  semantic: "语义",
+  procedural: "程序",
+};
+
 export default function MemoryPanel({ userId, refreshKey }: Props) {
   const [view, setView] = useState<MemoryView | null>(null);
   const [error, setError] = useState("");
@@ -65,6 +71,9 @@ export default function MemoryPanel({ userId, refreshKey }: Props) {
             <li key={m.id} className="memory-item">
               <div className="memory-text">{m.text}</div>
               <div className="memory-meta">
+                <span className={`memory-type-badge memory-type-${m.memory_type}`}>
+                  {TYPE_LABEL[m.memory_type] ?? m.memory_type}
+                </span>
                 <span>存于 {fmt(m.created_at)}</span>
                 <span>· 访问 {m.access_count} 次</span>
                 <span>· 重要性 {m.importance.toFixed(1)}</span>

@@ -2,6 +2,7 @@
 """
 [INPUT]: 依赖 langchain_openai.ChatOpenAI，依赖 config.settings，依赖标准库 json/re
 [OUTPUT]: 对外提供 extract_facts(user_message, assistant_reply, profile) -> dict
+    （memories 每条含 text/importance/memory_type，memory_type ∈ episodic/semantic/procedural）
 [POS]: memory 模块的认知提炼器，把原始对话蒸馏为可回写的结构化事实
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 """
@@ -25,6 +26,7 @@ _extractor = ChatOpenAI(
 )
 
 _PROFILE_KEYS = ("name", "research_domain", "language_preference")
+_MEMORY_TYPES = {"episodic", "semantic", "procedural"}
 
 _SYSTEM_PROMPT = """你是一个严格的信息抽取器，服务于研究生的研究助手。
 从用户的最新消息中，抽取值得【跨会话长期记忆】的结构化信息。
@@ -40,7 +42,8 @@ _SYSTEM_PROMPT = """你是一个严格的信息抽取器，服务于研究生的
     {"key": "偏好维度", "value": "具体偏好"}
   ],
   "memories": [
-    {"text": "提炼为第三人称陈述句的事实, 每条一个独立事实, 适合语义检索", "importance": 0.5}
+    {"text": "提炼为第三人称陈述句的事实, 每条一个独立事实, 适合语义检索", "importance": 0.5,
+     "memory_type": "episodic|semantic|procedural"}
   ]
 }
 
@@ -51,6 +54,11 @@ _SYSTEM_PROMPT = """你是一个严格的信息抽取器，服务于研究生的
 - importance 是 0~1 的浮点数，代表这条记忆对未来对话的长期价值：
   身份/研究方向/长期偏好等稳定核心事实给 0.8~1.0；中等程度的阶段性计划给 0.5~0.7；
   一次性好奇心/临时话题给 0.2~0.4。判断不了就给 0.5。
+- memory_type 三选一：
+  episodic（情景）= 具体事件/情境，例如"用户上周在读某篇论文"；
+  semantic（语义）= 稳定事实/知识，例如"用户的研究方向是计算机视觉"；
+  procedural（程序性）= 习惯/偏好/行为模式，例如"用户喜欢先给代码再给解释"。
+  判断不了就给 semantic。
 - 没有可抽取内容时：profile 字段全为 ""，preferences 与 memories 为空数组。
 - 严禁编造未提及的信息。只输出 JSON，不要任何解释或 markdown。"""
 
@@ -139,8 +147,13 @@ def _normalize(raw: dict) -> dict:
                 importance = _clamp01(float(m.get("importance", 0.5)))
             except (TypeError, ValueError):
                 importance = 0.5
-            out["memories"].append({"text": m["text"].strip(), "importance": importance})
+            # 非法/缺失一律兜底 semantic：它衰减最慢，抽取器判断不了时宁可保守长留
+            mtype = m.get("memory_type")
+            mtype = mtype if mtype in _MEMORY_TYPES else "semantic"
+            out["memories"].append(
+                {"text": m["text"].strip(), "importance": importance, "memory_type": mtype}
+            )
         elif isinstance(m, str) and m.strip():  # 容错：LLM 偶尔退化为纯字符串
-            out["memories"].append({"text": m.strip(), "importance": 0.5})
+            out["memories"].append({"text": m.strip(), "importance": 0.5, "memory_type": "semantic"})
 
     return out

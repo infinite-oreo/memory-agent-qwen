@@ -27,9 +27,12 @@ export default function App() {
   const [memoriesUsed, setMemoriesUsed] = useState<string[]>([]);
   const [learned, setLearned] = useState<FactsLearned | null>(null);
 
-  // 启动即确保用户存在（幂等）
+  // 启动即确保用户存在（幂等）；createUser 落盘 api_key 后才刷新记忆面板，
+  // 避免 MemoryPanel 与 createUser 并行发起请求时，因 localStorage 里还没有 key 而先吃一次 401
   useEffect(() => {
-    createUser(USER_ID, "研究生小黄", "自然语言处理", "zh").catch(() => void 0);
+    createUser(USER_ID, "研究生小黄", "自然语言处理", "zh")
+      .then(() => setRefreshKey((k) => k + 1))
+      .catch(() => void 0);
   }, []);
 
   function handleReply(res: ChatResponse) {

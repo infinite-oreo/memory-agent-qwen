@@ -95,6 +95,7 @@ async def _persist_facts(user_id: str, session_id: str, facts: dict) -> None:
             text=item["text"],
             metadata={"session_id": session_id, "source": "extracted"},
             importance=item["importance"],
+            memory_type=item["memory_type"],
         )
 
 

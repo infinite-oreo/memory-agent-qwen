@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 [INPUT]: 依赖 chromadb 持久化客户端，依赖 sentence-transformers 嵌入函数，依赖 forgetting.rerank_by_forgetting/retention_score
-[OUTPUT]: 对外提供 add_memory / retrieve_memory / list_memories / prune_forgotten
+[OUTPUT]: 对外提供 add_memory(含 memory_type 分类) / retrieve_memory / list_memories / prune_forgotten
 [POS]: memory 模块的长期向量记忆，Agent 跨会话语义记忆的物质载体
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 """
@@ -34,15 +34,26 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+_MEMORY_TYPES = {"episodic", "semantic", "procedural"}
+
+
 def add_memory(
-    user_id: str, text: str, metadata: dict | None = None, importance: float = 0.5
+    user_id: str,
+    text: str,
+    metadata: dict | None = None,
+    importance: float = 0.5,
+    memory_type: str = "semantic",
 ) -> str:
     """
     写入一条长期记忆；若与已有记忆语义高度相似，视为同一事实的再次印证，
     强化旧记忆（刷新访问、重要性取高者）而非重复入库。
-    metadata 自动注入 user_id / created_at / last_access / access_count / importance。
+    metadata 自动注入 user_id / created_at / last_access / access_count / importance / memory_type。
+    memory_type ∈ episodic/semantic/procedural，非法值兜底为 semantic。
     返回记忆 id（新建或被强化的既有记忆）。
     """
+    if memory_type not in _MEMORY_TYPES:
+        memory_type = "semantic"
+
     dup = _find_similar(user_id, text, settings.dedup_similarity_threshold)
     if dup is not None:
         mem_id, _similarity = dup
@@ -59,6 +70,7 @@ def add_memory(
             "last_access": now,
             "access_count": int(meta.get("access_count", 0)),
             "importance": float(importance),
+            "memory_type": memory_type,
         }
     )
     _collection.add(ids=[mem_id], documents=[text], metadatas=[meta])
@@ -80,7 +92,12 @@ def _find_similar(user_id: str, text: str, threshold: float) -> tuple[str, float
 
 
 def _merge_duplicate(mem_id: str, new_importance: float) -> None:
-    """强化被再次印证的旧记忆：刷新访问、重要性取新旧较高者。"""
+    """
+    强化被再次印证的旧记忆：刷新访问、重要性取新旧较高者。
+    刻意不接收/不更新 memory_type —— 去重合并的语义是"同一事实的再次印证"，
+    事实本身的类别不该因一次新措辞而漂移；若分类结果前后不一致，更可能是
+    抽取器的判断噪声，保留旧记忆已有的 memory_type 比跟随新证据更稳妥。
+    """
     got = _collection.get(ids=[mem_id], include=["metadatas"])
     if not got["ids"]:
         return
@@ -155,7 +172,12 @@ def prune_forgotten(user_id: str, threshold: float | None = None) -> int:
     stale_ids = [
         mid
         for mid, meta in zip(got["ids"], got["metadatas"])
-        if retention_score(meta.get("last_access", ""), float(meta.get("importance", 0.5))) < thr
+        if retention_score(
+            meta.get("last_access", ""),
+            float(meta.get("importance", 0.5)),
+            memory_type=meta.get("memory_type"),
+        )
+        < thr
     ]
     if stale_ids:
         _collection.delete(ids=stale_ids)
